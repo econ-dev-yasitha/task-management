@@ -1,0 +1,10 @@
+node_modules
+.next
+functions
+.firebase
+.firebaserc
+firebase.json
+firebase-debug.log
+.env.local
+.git
+*.md
