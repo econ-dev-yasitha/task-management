@@ -98,3 +98,50 @@ export const breakdownTask = onCall(async (request) => {
   
   return { success: true, count: subtasks.length };
 });
+
+export const askCopilot = onCall(async (request: { data: { message: string; userId: string } }) => {
+  const { message, userId } = request.data;
+
+  // Fetch all tasks for this user
+  const db = getFirestore();
+  const tasksSnap = await db.collection("tasks")
+    .where("user_id", "==", userId)
+    .get();
+
+  // Build task context including subtasks
+  const tasks = await Promise.all(tasksSnap.docs.map(async (docSnap) => {
+    const task = docSnap.data();
+    const subtasksSnap = await db.collection("tasks")
+      .doc(docSnap.id)
+      .collection("subtasks")
+      .get();
+    const subtasks = subtasksSnap.docs.map(s => s.data().title);
+    return {
+      title: task.title,
+      is_completed: task.is_completed,
+      category: task.category ?? "Uncategorized",
+      due_date: task.due_date ? new Date(task.due_date).toDateString() : "No due date",
+      subtasks,
+    };
+  }));
+
+  const today = new Date().toDateString();
+
+  const prompt = `
+You are a helpful task management assistant. Today is ${today}.
+The user has the following tasks:
+${JSON.stringify(tasks, null, 2)}
+
+User question: "${message}"
+
+Answer the question based only on the user's tasks above.
+Be concise, friendly and helpful. If asked about due dates, 
+calculate relative to today. Never make up tasks that aren't listed.
+  `;
+
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const result = await model.generateContent(prompt);
+  const reply = result.response.text().trim();
+
+  return { reply };
+});

@@ -5,4 +5,10 @@ export declare const breakdownTask: import("firebase-functions/v2/https").Callab
     success: boolean;
     count: any;
 }>, unknown>;
+export declare const askCopilot: import("firebase-functions/v2/https").CallableFunction<{
+    message: string;
+    userId: string;
+}, Promise<{
+    reply: string;
+}>, unknown>;
 //# sourceMappingURL=index.d.ts.map

@@ -26,6 +26,7 @@ import { TaskDashboard } from "@/components/task-dashboard";
 import type { Task, SubTask } from "@/lib/types";
 import { Loader2, AlertTriangle } from "lucide-react";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { CopilotChat } from "./copilot-chat";
 
 export default function AppShell() {
   const [user, setUser] = useState<User | null>(null);
@@ -264,6 +265,7 @@ export default function AppShell() {
 
   // Logged in - show dashboard
   return (
+    <>
     <TaskDashboard
       tasks={tasks}
       loading={tasksLoading}
@@ -275,5 +277,7 @@ export default function AppShell() {
       onBreakdownTask={handleBreakdownTask}
       onToggleSubtask={handleToggleSubtask}
     />
+    <CopilotChat userId={user.uid} />
+    </>
   );
 }
