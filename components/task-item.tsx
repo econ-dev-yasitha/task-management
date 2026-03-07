@@ -2,7 +2,7 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { ListTree, Trash2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,8 @@ interface TaskItemProps {
   task: Task;
   onToggle: (id: string, is_completed: boolean) => void;
   onDelete: (id: string) => void;
+  onBreakdown: (id: string, title: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string, is_completed: boolean) => void;
 }
 
 function getDueDateStatus(dueDate: number | null | undefined) {
@@ -28,7 +30,7 @@ function getDueDateStatus(dueDate: number | null | undefined) {
   return null;
 }
 
-export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
+export function TaskItem({ task, onToggle, onDelete, onBreakdown, onToggleSubtask}: TaskItemProps) {
   const dueDateStatus = getDueDateStatus(task.due_date);
   const formattedDueDate = task.due_date
     ? new Date(task.due_date).toLocaleDateString("en-US", {
@@ -76,6 +78,23 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
             Due: {formattedDueDate}
           </p>
         )}
+        {task.subtasks && task.subtasks.length > 0 && (
+        <div className="mt-2 ml-4 flex flex-col gap-1">
+          {task.subtasks.map(subtask => (
+            <div key={subtask.id} className="flex items-center gap-2">
+              <Checkbox
+                checked={subtask.is_completed}
+                onCheckedChange={(checked) => onToggleSubtask(task.id, subtask.id, checked as boolean)}
+              />
+              <span className={cn("text-xs", subtask.is_completed && "line-through text-muted-foreground",
+                task.is_completed && "line-through text-muted-foreground"
+              )}>
+                {subtask.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
       </div>
       <Button
         variant="ghost"
@@ -85,6 +104,10 @@ export function TaskItem({ task, onToggle, onDelete }: TaskItemProps) {
         aria-label={`Delete task "${task.title}"`}
       >
         <Trash2 className="size-4" />
+      </Button>
+
+      <Button variant="ghost" size="icon-sm" onClick={() => onBreakdown(task.id, task.title)}>
+        <ListTree className="size-4" />
       </Button>
     </div>
   );

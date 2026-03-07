@@ -2,6 +2,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { onCall } from "firebase-functions/v2/https";
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -75,3 +76,25 @@ export const autoCategorizeTasks = onDocumentCreated("tasks/{taskId}", async (ev
       // Don't fail the function, just log the error
     }
   });
+
+export const breakdownTask = onCall(async (request) => {
+  const { taskId, taskTitle } = request.data;
+  
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const prompt = `Break down this task into 3-5 clear actionable sub-tasks. Task: "${taskTitle}". Reply with only a JSON array of strings. Example: ["Sub-task 1", "Sub-task 2"]`;
+  
+  const result = await model.generateContent(prompt);
+  const text = result.response.text().trim().replace(/```json|```/g, "");
+  const subtasks = JSON.parse(text);
+  
+  const db = getFirestore();
+  for (const title of subtasks) {
+    await db.collection("tasks").doc(taskId).collection("subtasks").add({
+      title,
+      is_completed: false,
+      created_at: Date.now(),
+    });
+  }
+  
+  return { success: true, count: subtasks.length };
+});

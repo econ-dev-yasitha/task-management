@@ -18,12 +18,14 @@ import {
   where,
   orderBy,
   onSnapshot,
+  getDocs,
 } from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb, isFirebaseConfigured } from "@/lib/firebase";
 import { AuthForm } from "@/components/auth-form";
 import { TaskDashboard } from "@/components/task-dashboard";
-import type { Task } from "@/lib/types";
+import type { Task, SubTask } from "@/lib/types";
 import { Loader2, AlertTriangle } from "lucide-react";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function AppShell() {
   const [user, setUser] = useState<User | null>(null);
@@ -75,14 +77,27 @@ export default function AppShell() {
 
     const unsubscribe = onSnapshot(
       tasksQuery,
-      (snapshot) => {
-        const taskList: Task[] = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          title: docSnap.data().title as string,
-          is_completed: docSnap.data().is_completed as boolean,
-          created_at: docSnap.data().created_at as number,
-          due_date: docSnap.data().due_date ?? null,
-          category: docSnap.data().category ?? null,
+      async (snapshot) => {
+        const taskList: Task[] = await Promise.all(snapshot.docs.map(async (docSnap) => {
+          const subtasksSnap = await getDocs(collection(db, "tasks", docSnap.id, "subtasks"));
+          const subtasks: SubTask[] = subtasksSnap.docs.map((s) => {
+            const data = s.data();
+            return {
+              id: s.id,
+              title: data.title as string,
+              is_completed: data.is_completed as boolean,
+              created_at: data.created_at as number,
+            };
+          });
+          return {
+            id: docSnap.id,
+            title: docSnap.data().title as string,
+            is_completed: docSnap.data().is_completed as boolean,
+            created_at: docSnap.data().created_at as number,
+            due_date: docSnap.data().due_date ?? null,
+            category: docSnap.data().category ?? null,
+            subtasks,
+          };
         }));
         setTasks(taskList);
         setTasksLoading(false);
@@ -131,6 +146,46 @@ export default function AppShell() {
     },
     []
   );
+
+  const handleBreakdownTask = useCallback(async (taskId: string, taskTitle: string) => {
+  const functions = getFunctions();
+  const breakdown = httpsCallable(functions, "breakdownTask");
+  await breakdown({ taskId, taskTitle });
+  
+  const db = getFirebaseDb();
+  if (!db) return;
+  const subtasksSnap = await getDocs(collection(db, "tasks", taskId, "subtasks"));
+  const subtasks: SubTask[] = subtasksSnap.docs.map((s) => {
+    const data = s.data();
+    return {
+      id: s.id,
+      title: data.title as string,
+      is_completed: data.is_completed as boolean,
+      created_at: data.created_at as number,
+    };
+  });
+  
+  setTasks(prev => prev.map(t => 
+    t.id === taskId ? { ...t, subtasks } : t
+  ));
+}, []);
+
+  const handleToggleSubtask = useCallback(async (taskId: string, subtaskId: string, is_completed: boolean) => {
+  const db = getFirebaseDb();
+  if (!db) return;
+  await updateDoc(doc(db, "tasks", taskId, "subtasks", subtaskId), { is_completed });
+  
+  setTasks(prev => prev.map(t => 
+    t.id === taskId 
+      ? { 
+          ...t, 
+          subtasks: t.subtasks?.map(s => 
+            s.id === subtaskId ? { ...s, is_completed } : s
+          )
+        } 
+      : t
+  ));
+}, []);
 
   const handleLogout = useCallback(async () => {
     const auth = getFirebaseAuth();
@@ -217,6 +272,8 @@ export default function AppShell() {
       onToggleTask={handleToggleTask}
       onDeleteTask={handleDeleteTask}
       onLogout={handleLogout}
+      onBreakdownTask={handleBreakdownTask}
+      onToggleSubtask={handleToggleSubtask}
     />
   );
 }

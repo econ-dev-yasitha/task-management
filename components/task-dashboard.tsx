@@ -14,6 +14,8 @@ interface TaskDashboardProps {
   onToggleTask: (id: string, is_completed: boolean) => void;
   onDeleteTask: (id: string) => void;
   onLogout: () => void;
+  onBreakdownTask: (id: string, title: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string, is_completed: boolean) => void;
 }
 
 export function TaskDashboard({
@@ -24,6 +26,8 @@ export function TaskDashboard({
   onToggleTask,
   onDeleteTask,
   onLogout,
+  onBreakdownTask,
+  onToggleSubtask,
 }: TaskDashboardProps) {
   return (
     <div className="min-h-screen bg-muted/40">
@@ -70,6 +74,8 @@ export function TaskDashboard({
             loading={loading}
             onToggle={onToggleTask}
             onDelete={onDeleteTask}
+            onBreakdown={onBreakdownTask}
+            onToggleSubtask={onToggleSubtask}
           />
         </div>
       </main>

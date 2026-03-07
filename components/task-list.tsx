@@ -9,9 +9,11 @@ interface TaskListProps {
   loading: boolean;
   onToggle: (id: string, is_completed: boolean) => void;
   onDelete: (id: string) => void;
+  onBreakdown: (id: string, title: string) => void;
+  onToggleSubtask: (taskId: string, subtaskId: string, is_completed: boolean) => void;
 }
 
-export function TaskList({ tasks, loading, onToggle, onDelete }: TaskListProps) {
+export function TaskList({ tasks, loading, onToggle, onDelete, onBreakdown, onToggleSubtask }: TaskListProps) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-muted-foreground">
@@ -49,6 +51,8 @@ export function TaskList({ tasks, loading, onToggle, onDelete }: TaskListProps) 
             task={task}
             onToggle={onToggle}
             onDelete={onDelete}
+            onBreakdown={onBreakdown}
+            onToggleSubtask={onToggleSubtask}
           />
         ))}
       </div>
