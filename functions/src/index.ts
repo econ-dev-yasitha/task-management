@@ -78,16 +78,33 @@ export const autoCategorizeTasks = onDocumentCreated("tasks/{taskId}", async (ev
   });
 
 export const breakdownTask = onCall(async (request) => {
+  const userId = request.auth?.uid;
+  if (!userId) throw new Error("Unauthenticated");
+
   const { taskId, taskTitle } = request.data;
-  
+
+  const db = getFirestore();
+
+  // Verify task belongs to this user
+  const taskDoc = await db.collection("tasks").doc(taskId).get();
+  if (taskDoc.data()?.user_id !== userId) {
+    throw new Error("Unauthorized");
+  }
+
+  // Check if subtasks already exist
+  const existing = await db.collection("tasks").doc(taskId)
+    .collection("subtasks").limit(1).get();
+  if (!existing.empty) {
+    return { success: false, message: "Already broken down" };
+  }
+
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const prompt = `Break down this task into 3-5 clear actionable sub-tasks. Task: "${taskTitle}". Reply with only a JSON array of strings. Example: ["Sub-task 1", "Sub-task 2"]`;
-  
+
   const result = await model.generateContent(prompt);
   const text = result.response.text().trim().replace(/```json|```/g, "");
   const subtasks = JSON.parse(text);
-  
-  const db = getFirestore();
+
   for (const title of subtasks) {
     await db.collection("tasks").doc(taskId).collection("subtasks").add({
       title,
@@ -95,20 +112,21 @@ export const breakdownTask = onCall(async (request) => {
       created_at: Date.now(),
     });
   }
-  
+
   return { success: true, count: subtasks.length };
 });
 
-export const askCopilot = onCall(async (request: { data: { message: string; userId: string } }) => {
-  const { message, userId } = request.data;
+export const askCopilot = onCall(async (request) => {
+  const userId = request.auth?.uid;
+  if (!userId) throw new Error("Unauthenticated");
 
-  // Fetch all tasks for this user
+  const { message } = request.data;
+
   const db = getFirestore();
   const tasksSnap = await db.collection("tasks")
     .where("user_id", "==", userId)
     .get();
 
-  // Build task context including subtasks
   const tasks = await Promise.all(tasksSnap.docs.map(async (docSnap) => {
     const task = docSnap.data();
     const subtasksSnap = await db.collection("tasks")
@@ -126,7 +144,6 @@ export const askCopilot = onCall(async (request: { data: { message: string; user
   }));
 
   const today = new Date().toDateString();
-
   const prompt = `
 You are a helpful task management assistant. Today is ${today}.
 The user has the following tasks:

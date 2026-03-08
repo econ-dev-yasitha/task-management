@@ -2,9 +2,10 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ListTree, Trash2 } from "lucide-react";
+import { ListTree, Loader2, Trash2 } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface TaskItemProps {
   task: Task;
@@ -38,6 +39,13 @@ export function TaskItem({ task, onToggle, onDelete, onBreakdown, onToggleSubtas
         day: "numeric",
       })
     : null;
+  const [isBreakingDown, setIsBreakingDown] = useState(false);
+  const handleBreakdown = async () => {
+    if (isBreakingDown) return;
+    setIsBreakingDown(true);
+    await onBreakdown(task.id, task.title);
+    setIsBreakingDown(false);
+  };
 
   return (
     <div className="group flex items-start gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent/50">
@@ -106,8 +114,16 @@ export function TaskItem({ task, onToggle, onDelete, onBreakdown, onToggleSubtas
         <Trash2 className="size-4" />
       </Button>
 
-      <Button variant="ghost" size="icon-sm" onClick={() => onBreakdown(task.id, task.title)}>
-        <ListTree className="size-4" />
+      <Button 
+        variant="ghost" 
+        size="icon-sm" 
+        onClick={handleBreakdown}
+        disabled={isBreakingDown}
+      >
+        {isBreakingDown 
+          ? <Loader2 className="size-4 animate-spin" /> 
+          : <ListTree className="size-4" />
+        }
       </Button>
     </div>
   );
